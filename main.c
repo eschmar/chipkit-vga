@@ -1,36 +1,59 @@
 #include <pic32mx.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#define SCREEN_H          480
+#define SCREEN_SCALED_H   30
+#define SCREEN_W          640
+#define SCREEN_SCALED_W   40
+
+#define IMAGE_FILE = "image.txt";
+
+#define IN_DRAW            0
+#define IN_VSYNC_PULSE     1
+#define IN_VSYNC_FP        2
+
+#define nop __asm__("nop \n")
+
+/* Define VGA Constants */
+#define VSYNC_FP_LINE     10
+#define VSYNC_SP_LINE      2
+#define VSYNC_BP_LINE     33
+#define VSYNC_VA_LINE    480
+#define VSYNC_TL_LINE    525
+
+#define HSYNC_FP_PXL      16
+#define HSYNC_SP_PXL      96
+#define HSYNC_BP_PXL      48
+#define HSYNC_VA_PXL     640
+#define HSYNC_TL_PXL     800
+
+/* Define VGA vars */
+int  lineCounter;
+char showRow;
+char displayState;
+char screen[SCREEN_SCALED_H][SCREEN_SCALED_W];
+
+void parseImageFile() {
+    // todo.
+    
+    // placeholder:
+    int i,j;
+    for (i = 0; i < SCREEN_SCALED_H; i++) {
+        for (j = 0; j < SCREEN_SCALED_W; j++) {
+            screen[i][j] = (i+j) % 2;
+        }
+    }
+    
+    return;
+}
 
 int main() {
-    // initialise LEDs as outputs
-    TRISECLR = 0xff;
-    PORTECLR = 0xff;
-    
-    // turn on LED1
-    PORTESET = 0x1;
-    
-    // init timer
-    T2CON = 0x0;        // stop timer
-    TMR2 = 0;           // clear timer
-    PR2 = 31250;        // set period to (80kk/256/10)
-    IPCSET(2) = 0x1F;   // set priority 7/3
-    
-    IFSCLR(0) = 0x100;  // reset timer interrupt status flag
-    IECSET(0) = 0x100;  // enable timer interrupts
-
-    // set prescaling to 1:256 and enable timer (bits 15,6-4)
-    T2CONSET = 0x0070;
-    
-    // start timer
-    T2CONSET = 0x8000;
-    enable_interrupt();
-   
+    // main logic
+    parseImageFile();
 	return 0;
 }
 
-
 void timer2_interrupt_handler(void) {
-    int next = (PORTE + 1) % 0xff;
-    PORTECLR = ~next;
-    PORTESET = next;
-    IFSCLR(0) = 0x100;
+    
 }
