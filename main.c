@@ -1,13 +1,13 @@
 #include <pic32mx.h>
-#include <stdio.h>
-#include <stdlib.h>
+//#include <stdio.h>
+//#include <stdlib.h>
 
 #define SCREEN_H          480
 #define SCREEN_SCALED_H   30
 #define SCREEN_W          640
 #define SCREEN_SCALED_W   40
 
-#define IMAGE_FILE = "image.txt";
+#define FILE_IMAGE  "image.txt"
 
 #define IN_DRAW            0
 #define IN_VSYNC_PULSE     1
@@ -36,14 +36,40 @@ char screen[SCREEN_SCALED_H][SCREEN_SCALED_W];
 
 void parseImageFile() {
     // todo.
+    // FILE *fp;
+    // char str[SCREEN_SCALED_W];
+    
+    // fp = fopen(FILE_IMAGE, "r");
+    
+    // if (fp == NULL) {
+    //     // error!
+    // }
+    
+    // int i = 0;
+    // while (fgets(str, SCREEN_SCALED_W, fp)) {
+    //     screen[i] = str;
+    // }
+    
+    // fclose(fp);
     
     // placeholder:
-    int i,j;
-    for (i = 0; i < SCREEN_SCALED_H; i++) {
-        for (j = 0; j < SCREEN_SCALED_W; j++) {
-            screen[i][j] = (i+j) % 2;
-        }
+    int i = 15;
+    int j = 20;
+    int z = 1;
+    while (i < SCREEN_SCALED_H && j < SCREEN_SCALED_W) {
+        screen[i][j] = 1;
+        i += z;
+        screen[i][j] = 1;
+        j += z;
+        z++;
     }
+    
+    // int i,j;
+    // for (i = 0; i < SCREEN_SCALED_H; i++) {
+    //     for (j = 0; j < SCREEN_SCALED_W; j++) {
+    //         screen[i][j] = (i+j) % 2;
+    //     }
+    // }
     
     return;
 }
