@@ -1,5 +1,5 @@
 #include <pic32mx.h>
-//#include <stdio.h>
+//#include "helpers.h"
 //#include <stdlib.h>
 
 #define SCREEN_H          480
@@ -34,25 +34,7 @@ char showRow;
 char displayState;
 char screen[SCREEN_SCALED_H][SCREEN_SCALED_W];
 
-void parseImageFile() {
-    // todo.
-    // FILE *fp;
-    // char str[SCREEN_SCALED_W];
-    
-    // fp = fopen(FILE_IMAGE, "r");
-    
-    // if (fp == NULL) {
-    //     // error!
-    // }
-    
-    // int i = 0;
-    // while (fgets(str, SCREEN_SCALED_W, fp)) {
-    //     screen[i] = str;
-    // }
-    
-    // fclose(fp);
-    
-    // placeholder:
+void generateArt() {
     int i = 15;
     int j = 20;
     int z = 1;
@@ -63,23 +45,47 @@ void parseImageFile() {
         j += z;
         z++;
     }
-    
-    // int i,j;
-    // for (i = 0; i < SCREEN_SCALED_H; i++) {
-    //     for (j = 0; j < SCREEN_SCALED_W; j++) {
-    //         screen[i][j] = (i+j) % 2;
-    //     }
-    // }
-    
-    return;
 }
 
 int main() {
-    // main logic
-    parseImageFile();
+    // initialise LEDs as outputs
+    TRISECLR = 0xff;
+    PORTECLR = 0xff;
+    
+    // setup timers
+    enableTimer2(31250, 0x1B, 0x7, 1);
+    enableTimer3(51250, 0x1B, 0x7, 1);
+    
+    // enable interrupts
+    enableMultiVectorMode();
+    enable_interrupt();
+   
 	return 0;
 }
 
+/**
+ * ISR Interrupt handler for timer 2
+ */
 void timer2_interrupt_handler(void) {
-    
+    int next = ((PORTE & 0xf) + 1) % 0xf;
+    PORTECLR = ~next & 0xf;
+    PORTESET = next & 0xf;
+    IFSCLR(0) = 0x100;
+}
+
+/**
+ * ISR Interrupt handler for timer 3
+ */
+void timer3_interrupt_handler(void) {
+    int next = ((((PORTE & 0xf0) >> 4) + 1) % 0xf) << 4;
+    PORTECLR = ~next & 0xf0;
+    PORTESET = next & 0xf0;
+    IFSCLR(0) = 0x1000;
+}
+
+/**
+ * ISR general interrupt handler
+ */
+void core_interrupt_handler(void) {
+    // code
 }
