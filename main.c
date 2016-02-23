@@ -1,6 +1,5 @@
 #include <pic32mx.h>
-//#include "helpers.h"
-//#include <stdlib.h>
+#include "helpers.h"
 
 #define SCREEN_H          480
 #define SCREEN_SCALED_H   30
