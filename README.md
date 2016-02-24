@@ -2,4 +2,4 @@
 Chipkit Uno32 VGA interface and PONG game.
 
 ___
-:coffee: count: 6
+:coffee: count: 8
