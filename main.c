@@ -2,15 +2,19 @@
 #include "helpers.h"
 
 #define SCREEN_H          480
-#define SCREEN_SCALED_H   30
+#define SCREEN_SCALED_H   60
 #define SCREEN_W          640
-#define SCREEN_SCALED_W   40
+#define SCREEN_SCALED_W   80
 
 #define FILE_IMAGE  "image.txt"
 
 #define IN_DRAW            0
 #define IN_VSYNC_PULSE     1
 #define IN_VSYNC_FP        2
+#define IN_VSYNC_BP        3
+#define IN_HSYNC_PULSE     5
+#define IN_HSYNC_FP        6
+#define IN_HSYNC_BP        7
 
 #define nop __asm__("nop \n")
 
@@ -27,11 +31,37 @@
 #define HSYNC_VA_PXL     640
 #define HSYNC_TL_PXL     800
 
+#define SCALING 8
+
+#define PIN_VSYNC        0x4
+#define PIN_HSYNC       0x10
+#define PIN_VGA         0x40
+
+
 /* Define VGA vars */
 int  lineCounter;
 char showRow;
-char displayState;
+int displayState;
+int previousState;
 char screen[SCREEN_SCALED_H][SCREEN_SCALED_W];
+
+// VSync counters
+short vsyncFP = VSYNC_FP_LINE;
+short vsyncBP = VSYNC_BP_LINE;
+short vsyncSP = VSYNC_SP_LINE;
+short vsyncVA = VSYNC_VA_LINE;
+
+// HSync counters
+short hsyncFP = HSYNC_FP_PXL / SCALING;
+short hsyncBP = HSYNC_BP_PXL / SCALING;
+short hsyncSP = HSYNC_SP_PXL / SCALING;
+
+// Current position in active area
+short x = HSYNC_VA_PXL / SCALING;
+short y = VSYNC_VA_LINE;
+
+short vsyncPorch = (HSYNC_BP_PXL + HSYNC_FP_PXL + HSYNC_VA_PXL) / SCALING;
+
 
 void generateArt() {
     int i = 15;
@@ -52,11 +82,9 @@ int main() {
     PORTECLR = 0xff;
     
     // setup timers
-    enableTimer2(31250, 0x1B, 0x7, 1);
-    enableTimer3(51250, 0x1B, 0x7, 1);
+    enableTimer2(25, 0x1B, 0x0, 1);
     
     // enable interrupts
-    enableMultiVectorMode();
     enable_interrupt();
    
 	return 0;
@@ -66,25 +94,128 @@ int main() {
  * ISR Interrupt handler for timer 2
  */
 void timer2_interrupt_handler(void) {
-    int next = ((PORTE & 0xf) + 1) % 0xf;
-    PORTECLR = ~next & 0xf;
-    PORTESET = next & 0xf;
-    IFSCLR(0) = 0x100;
+   
 }
 
 /**
  * ISR Interrupt handler for timer 3
  */
 void timer3_interrupt_handler(void) {
-    int next = ((((PORTE & 0xf0) >> 4) + 1) % 0xf) << 4;
-    PORTECLR = ~next & 0xf0;
-    PORTESET = next & 0xf0;
-    IFSCLR(0) = 0x1000;
+   
+}
+
+void resetCounters(void) {
+    vsyncFP = VSYNC_FP_LINE;
+    vsyncBP = VSYNC_BP_LINE;
+    vsyncSP = VSYNC_SP_LINE;
+
+    hsyncFP = HSYNC_FP_PXL / SCALING;
+    hsyncBP = HSYNC_BP_PXL / SCALING;
+    hsyncSP = HSYNC_SP_PXL / SCALING;
+
+    x = HSYNC_VA_PXL / SCALING;
+    y = VSYNC_VA_LINE;   
+}
+
+void updateState(int nextState) {
+    previousState = displayState;
+    displayState = nextState;
 }
 
 /**
  * ISR general interrupt handler
  */
 void core_interrupt_handler(void) {
-    // code
+    switch(displayState) {
+        case IN_DRAW:
+        
+        break;
+            
+        case IN_HSYNC_PULSE:
+            PORTESET = PIN_HSYNC;
+        
+            hsyncSP--;
+            if (hsyncSP == 0) {
+                if (previousState == IN_VSYNC_FP) {
+                    vsyncFP--;
+                    if (vsyncFP == 0) {
+                        updateState(IN_VSYNC_FP);
+                    } else {
+                        updateState(IN_VSYNC_FP);
+                        vsyncFP = VSYNC_FP_LINE;
+                    }
+                } else if (previousState == IN_HSYNC_BP) {
+                    vsyncVA--;
+                    if (vsyncVA == 0) {
+                        updateState(IN_VSYNC_BP);
+                    } else {
+                        updateState(IN_HSYNC_FP);
+                        vsyncVA = VSYNC_VA_LINE;
+                    }
+                } else if (previousState == IN_VSYNC_BP) {
+                    vsyncBP--:
+                    if (vsyncBP == 0) {
+                        updateState(IN_VSYNC_PULSE);
+                    } else {
+                        updateState(IN_VSYNC_BP);
+                        vsyncBP = VSYNC_BP_LINE;
+                    }
+                } else if (previousState == IN_VSYNC_PULSE) {
+                    vsyncSP--;
+                    if (vsyncSP == 0) {
+                        updateState(IN_VSYNC_FP);
+                    } else {
+                        updateState(IN_VSYNC_PULSE);
+                        vsyncSP = VSYNC_SP_LINE;
+                    }
+                }
+                hsyncSP = HSYNC_SP_PXL / SCALING;
+                PORTECLR = PIN_HSYNC;
+            }
+        break;
+        
+        case IN_VSYNC_PULSE:
+            PORTESET = PIN_VSYNC;
+            vsyncPorch--;
+            if (vsyncPorch == 0) {
+                updateState(IN_HSYNC_PULSE);
+                vsyncPorch = (HSYNC_BP_PXL + HSYNC_FP_PXL + HSYNC_VA_PXL) / SCALING;
+            }   
+        break;
+        
+        case IN_HSYNC_FP:
+            hsyncFP--;
+            if (hsyncFP == 0) {
+                updateState(IN_DRAW);
+                hsyncFP = HSYNC_FP_PXL / SCALING;  
+            }
+        break;
+        
+        case IN_HSYNC_BP:
+            hsyncBP--;
+            if (hsyncBP == 0) {
+                updateState(IN_HSYNC_PULSE);
+                hsyncBP = HSYNC_BP_PXL / SCALING;  
+            }
+        break;
+        
+        case IN_VSYNC_BP:
+            vsyncPorch--;
+            if (vsyncPorch == 0) {
+                updateState(IN_HSYNC_PULSE);
+                vsyncPorch = (HSYNC_BP_PXL + HSYNC_FP_PXL + HSYNC_VA_PXL) / SCALING;
+            }
+        break;
+        
+        case IN_VSYNC_FP:
+            vsyncPorch--;
+            if (vsyncPorch == 0) {
+                updateState(IN_HSYNC_PULSE);
+                vsyncPorch = (HSYNC_BP_PXL + HSYNC_FP_PXL + HSYNC_VA_PXL) / SCALING;
+            }
+        break;
+        
+        
+    }
 }
+
