@@ -60,6 +60,7 @@ short hsyncSP = HSYNC_SP_PXL / SCALING;
 short x = HSYNC_VA_PXL / SCALING;
 short y = VSYNC_VA_LINE;
 
+// Length 88 scaled pixels
 short vsyncPorch = (HSYNC_BP_PXL + HSYNC_FP_PXL + HSYNC_VA_PXL) / SCALING;
 
 
@@ -104,6 +105,9 @@ void timer3_interrupt_handler(void) {
    
 }
 
+/**
+ * Resets all the counters 
+ */
 void resetCounters(void) {
     vsyncFP = VSYNC_FP_LINE;
     vsyncBP = VSYNC_BP_LINE;
@@ -117,6 +121,9 @@ void resetCounters(void) {
     y = VSYNC_VA_LINE;   
 }
 
+/**
+ * Keeps track of current and previous states
+ */
 void updateState(int nextState) {
     previousState = displayState;
     displayState = nextState;
@@ -127,10 +134,64 @@ void updateState(int nextState) {
  */
 void core_interrupt_handler(void) {
     switch(displayState) {
-        case IN_DRAW:
         
+        // VSync front porch: 88 iterations for 10 lines
+        case IN_VSYNC_FP:
+            vsyncPorch--;
+            if (vsyncPorch == 0) {
+                updateState(IN_HSYNC_PULSE);
+                vsyncPorch = (HSYNC_BP_PXL + HSYNC_FP_PXL + HSYNC_VA_PXL) / SCALING;
+            }
         break;
-            
+        
+        // HSync front porch: 2 iterations for 480 lines
+        case IN_HSYNC_FP:
+            hsyncFP--;
+            if (hsyncFP == 0) {
+                updateState(IN_DRAW);
+                hsyncFP = HSYNC_FP_PXL / SCALING;  
+            }
+        break;
+        
+        // Skip the drawing activity filling with empty iterations
+        case IN_DRAW:
+            x--;
+            if (x == 0) {
+                updateState(IN_HSYNC_BP);
+                x = HSYNC_VA_PXL / SCALING;
+            }
+        break;
+        
+         // HSync back porch: 6 iterations for 480 lines
+        case IN_HSYNC_BP:
+            hsyncBP--;
+            if (hsyncBP == 0) {
+                updateState(IN_HSYNC_PULSE);
+                hsyncBP = HSYNC_BP_PXL / SCALING;  
+            }
+        break;
+        
+        // VSync back porch: 88 iterations for 33 lines 
+        case IN_VSYNC_BP:
+            vsyncPorch--;
+            if (vsyncPorch == 0) {
+                updateState(IN_HSYNC_PULSE);
+                vsyncPorch = (HSYNC_BP_PXL + HSYNC_FP_PXL + HSYNC_VA_PXL) / SCALING;
+            }
+        break;
+        
+        // VSync pulse: 88 iterations for 2 lines. VSync pin HIGH
+        case IN_VSYNC_PULSE:
+            PORTESET = PIN_VSYNC;
+            vsyncPorch--;
+            if (vsyncPorch == 0) {
+                updateState(IN_HSYNC_PULSE);
+                vsyncPorch = (HSYNC_BP_PXL + HSYNC_FP_PXL + HSYNC_VA_PXL) / SCALING;
+            }   
+        break;
+        
+        // HSync pulse: 12 iterations for a variable number of lines depending
+        // on the previous state. HSync pin HIGH
         case IN_HSYNC_PULSE:
             PORTESET = PIN_HSYNC;
         
@@ -153,7 +214,7 @@ void core_interrupt_handler(void) {
                         vsyncVA = VSYNC_VA_LINE;
                     }
                 } else if (previousState == IN_VSYNC_BP) {
-                    vsyncBP--:
+                    vsyncBP--;
                     if (vsyncBP == 0) {
                         updateState(IN_VSYNC_PULSE);
                     } else {
@@ -163,6 +224,7 @@ void core_interrupt_handler(void) {
                 } else if (previousState == IN_VSYNC_PULSE) {
                     vsyncSP--;
                     if (vsyncSP == 0) {
+                        resetCounters();
                         updateState(IN_VSYNC_FP);
                     } else {
                         updateState(IN_VSYNC_PULSE);
@@ -173,49 +235,5 @@ void core_interrupt_handler(void) {
                 PORTECLR = PIN_HSYNC;
             }
         break;
-        
-        case IN_VSYNC_PULSE:
-            PORTESET = PIN_VSYNC;
-            vsyncPorch--;
-            if (vsyncPorch == 0) {
-                updateState(IN_HSYNC_PULSE);
-                vsyncPorch = (HSYNC_BP_PXL + HSYNC_FP_PXL + HSYNC_VA_PXL) / SCALING;
-            }   
-        break;
-        
-        case IN_HSYNC_FP:
-            hsyncFP--;
-            if (hsyncFP == 0) {
-                updateState(IN_DRAW);
-                hsyncFP = HSYNC_FP_PXL / SCALING;  
-            }
-        break;
-        
-        case IN_HSYNC_BP:
-            hsyncBP--;
-            if (hsyncBP == 0) {
-                updateState(IN_HSYNC_PULSE);
-                hsyncBP = HSYNC_BP_PXL / SCALING;  
-            }
-        break;
-        
-        case IN_VSYNC_BP:
-            vsyncPorch--;
-            if (vsyncPorch == 0) {
-                updateState(IN_HSYNC_PULSE);
-                vsyncPorch = (HSYNC_BP_PXL + HSYNC_FP_PXL + HSYNC_VA_PXL) / SCALING;
-            }
-        break;
-        
-        case IN_VSYNC_FP:
-            vsyncPorch--;
-            if (vsyncPorch == 0) {
-                updateState(IN_HSYNC_PULSE);
-                vsyncPorch = (HSYNC_BP_PXL + HSYNC_FP_PXL + HSYNC_VA_PXL) / SCALING;
-            }
-        break;
-        
-        
     }
 }
-
