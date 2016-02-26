@@ -135,7 +135,7 @@ void handleSyncPulses() {
     // VSYNC
     if (y == vsyncSP && x == (HSYNC_TL_PXL / SCALING)) {
         PORTESET = PIN_VSYNC;
-    }else if (y == VSYNC_TL_LINE && x == (HSYNC_TL_PXL / SCALING)) {
+    }else if (y == 1 && x == 1) {
         PORTECLR = PIN_VSYNC;
     }
 }
@@ -163,9 +163,6 @@ void updateState(int nextState) {
     previousState = displayState;
     displayState = nextState;
 }
-
-int cc = 0;
-
 
 /**
  * ISR general interrupt handler
