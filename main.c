@@ -83,26 +83,49 @@ int main() {
     PORTECLR = 0xff;
     
     // setup timers
-    enableTimer2(25, 0x1B, 0x0, 1);
-    
+    enableTimer2(1280, 0x1B, 0x001, 1);
+    enableTimer3(160, 0x1B, 0x001, 1);
+
     // enable interrupts
+    enableMultiVectorMode();
     enable_interrupt();
    
 	return 0;
 }
 
+int ysyncCounter = 0;
 /**
  * ISR Interrupt handler for timer 2
  */
 void timer2_interrupt_handler(void) {
-   
+   IFSCLR(0) = 0x100;
+   ysyncCounter = (ysyncCounter + 1) % 525;
+
+    if (ysyncCounter == 0) {
+        PORTESET = PIN_VSYNC;
+        //ysyncCounter--;
+    }
+    if (ysyncCounter == 2) {
+        PORTECLR = PIN_VSYNC;
+    }
 }
 
+
+int hsyncCounter = 0;
 /**
  * ISR Interrupt handler for timer 3
  */
 void timer3_interrupt_handler(void) {
-   
+   IFSCLR(0) = 0x1000;
+   hsyncCounter = (hsyncCounter + 1) % 8;
+
+    if (hsyncCounter == 0) {
+        PORTESET = PIN_HSYNC;
+        //hsyncCounter--;
+    }
+    if (hsyncCounter == 1) {
+        PORTECLR = PIN_HSYNC;
+    }
 }
 
 /**
@@ -146,15 +169,14 @@ void handleSyncPulses() {
 void advance() {
     x--;
     
-    if (x == 0 && y > 0) {
+    if (x == 0 && y > 1) {
         x = HSYNC_TL_PXL / SCALING;
         y--;
-    }else if (x == 0 && y == 0) {
+    }else if (x == 0 && y == 1) {
         x = HSYNC_TL_PXL / SCALING;
         y = VSYNC_TL_LINE;
     }
 }
-
 
 /**
  * Keeps track of current and previous states
@@ -169,13 +191,12 @@ void updateState(int nextState) {
  */
 void core_interrupt_handler(void) {
     // clear interrupt flag
-    IFSCLR(0) = 0x100;
-    
+    // IFSCLR(0) = 0x100;
+
     // pulse!
-    handleSyncPulses();
-    
+    //handleSyncPulses();
+
     // do something
-    
     advance();
 }
 
